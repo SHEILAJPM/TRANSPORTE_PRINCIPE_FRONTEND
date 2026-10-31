@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -13,8 +13,6 @@ import { LogoMark } from "@/components/brand/logo-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthActions } from "@/hooks/use-auth-actions";
 import { rutaInicioPara } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
@@ -24,17 +22,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "Ingresa tu contraseña"),
 });
 
-const registroSchema = z.object({
-  ruc: z.string().regex(/^\d{11}$/, "El RUC debe tener 11 dígitos"),
-  razon_social: z.string().min(3, "Ingresa la razón social"),
-  admin_nombres: z.string().min(2, "Ingresa tus nombres"),
-  admin_apellidos: z.string().min(2, "Ingresa tus apellidos"),
-  admin_email: z.string().email("Correo inválido"),
-  admin_password: z.string().min(8, "Mínimo 8 caracteres"),
-});
-
 type LoginValues = z.infer<typeof loginSchema>;
-type RegistroValues = z.infer<typeof registroSchema>;
 
 const cardVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -49,15 +37,13 @@ const panelVariants: Variants = {
 export default function LoginPage() {
   const router = useRouter();
   const { token, usuario, hidratado } = useAuthStore();
-  const { login, registrarEmpresa, cargando } = useAuthActions();
-  const [tab, setTab] = useState<"login" | "registro">("login");
+  const { login, cargando } = useAuthActions();
 
   useEffect(() => {
     if (hidratado && token) router.replace(rutaInicioPara(usuario?.rol));
   }, [hidratado, token, usuario, router]);
 
   const loginForm = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
-  const registroForm = useForm<RegistroValues>({ resolver: zodResolver(registroSchema) });
 
   async function onLogin(values: LoginValues) {
     try {
@@ -66,16 +52,6 @@ export default function LoginPage() {
       router.push(rutaInicioPara(data.usuario.rol));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo iniciar sesión");
-    }
-  }
-
-  async function onRegistro(values: RegistroValues) {
-    try {
-      const data = await registrarEmpresa(values);
-      toast.success(`Empresa registrada. Bienvenido, ${data.usuario.nombres}`);
-      router.push(rutaInicioPara(data.usuario.rol));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo registrar la empresa");
     }
   }
 
@@ -128,117 +104,37 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "registro")}>
-            <TabsList className="mb-6 grid w-full grid-cols-2">
-              <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
-              <TabsTrigger value="registro">Registrar empresa</TabsTrigger>
-            </TabsList>
-
-            <AnimatePresence mode="wait">
-              {tab === "login" ? (
-                <motion.div
-                  key="login"
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <TabsContent value="login" forceMount>
-                    <h2 className="text-xl font-semibold">Bienvenido de nuevo</h2>
-                    <p className="mb-6 mt-1 text-sm text-muted-foreground">Ingresa tus credenciales para continuar.</p>
-                    <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="email">Correo electrónico</Label>
-                        <div className="relative">
-                          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input id="email" type="email" placeholder="tucorreo@empresa.com" className="pl-9" {...loginForm.register("email")} />
-                        </div>
-                        {loginForm.formState.errors.email && (
-                          <p className="text-xs text-destructive">{loginForm.formState.errors.email.message}</p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="password">Contraseña</Label>
-                        <div className="relative">
-                          <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input id="password" type="password" placeholder="••••••••" className="pl-9" {...loginForm.register("password")} />
-                        </div>
-                        {loginForm.formState.errors.password && (
-                          <p className="text-xs text-destructive">{loginForm.formState.errors.password.message}</p>
-                        )}
-                      </div>
-                      <Button type="submit" className="w-full" disabled={cargando}>
-                        {cargando && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Ingresar
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="registro"
-                  initial={{ opacity: 0, x: 8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <TabsContent value="registro" forceMount>
-                    <h2 className="text-xl font-semibold">Registra tu empresa</h2>
-                    <p className="mb-6 mt-1 text-sm text-muted-foreground">
-                      Crea la cuenta de tu empresa y tu usuario administrador.
-                    </p>
-                    <form onSubmit={registroForm.handleSubmit(onRegistro)} className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="ruc">RUC</Label>
-                          <Input id="ruc" maxLength={11} placeholder="20123456789" {...registroForm.register("ruc")} />
-                          {registroForm.formState.errors.ruc && (
-                            <p className="text-xs text-destructive">{registroForm.formState.errors.ruc.message}</p>
-                          )}
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="razon_social">Razón social</Label>
-                          <Input id="razon_social" placeholder="Transporte Príncipe S.A.C." {...registroForm.register("razon_social")} />
-                          {registroForm.formState.errors.razon_social && (
-                            <p className="text-xs text-destructive">{registroForm.formState.errors.razon_social.message}</p>
-                          )}
-                        </div>
-                      </div>
-                      <Separator className="my-1" />
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="admin_nombres">Tus nombres</Label>
-                          <Input id="admin_nombres" {...registroForm.register("admin_nombres")} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="admin_apellidos">Tus apellidos</Label>
-                          <Input id="admin_apellidos" {...registroForm.register("admin_apellidos")} />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="admin_email">Correo del administrador</Label>
-                        <Input id="admin_email" type="email" {...registroForm.register("admin_email")} />
-                        {registroForm.formState.errors.admin_email && (
-                          <p className="text-xs text-destructive">{registroForm.formState.errors.admin_email.message}</p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="admin_password">Contraseña</Label>
-                        <Input id="admin_password" type="password" placeholder="Mínimo 8 caracteres" {...registroForm.register("admin_password")} />
-                        {registroForm.formState.errors.admin_password && (
-                          <p className="text-xs text-destructive">{registroForm.formState.errors.admin_password.message}</p>
-                        )}
-                      </div>
-                      <Button type="submit" className="w-full" disabled={cargando}>
-                        {cargando && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Crear empresa y usuario
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </motion.div>
+          <h2 className="text-xl font-semibold">Bienvenido de nuevo</h2>
+          <p className="mb-6 mt-1 text-sm text-muted-foreground">Ingresa tus credenciales para continuar.</p>
+          <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Correo electrónico</Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="email" type="email" placeholder="tucorreo@empresa.com" className="pl-9" {...loginForm.register("email")} />
+              </div>
+              {loginForm.formState.errors.email && (
+                <p className="text-xs text-destructive">{loginForm.formState.errors.email.message}</p>
               )}
-            </AnimatePresence>
-          </Tabs>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="password" type="password" placeholder="••••••••" className="pl-9" {...loginForm.register("password")} />
+              </div>
+              {loginForm.formState.errors.password && (
+                <p className="text-xs text-destructive">{loginForm.formState.errors.password.message}</p>
+              )}
+            </div>
+            <Button type="submit" className="w-full" disabled={cargando}>
+              {cargando && <Loader2 className="h-4 w-4 animate-spin" />}
+              Ingresar
+            </Button>
+          </form>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            ¿No tienes cuenta? Pide al administrador que te cree un usuario.
+          </p>
         </motion.div>
       </div>
     </div>

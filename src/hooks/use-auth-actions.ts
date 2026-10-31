@@ -4,15 +4,6 @@ import { api, extraerMensajeError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import type { TokenResponse } from "@/types/api";
 
-export interface RegistroEmpresaPayload {
-  ruc: string;
-  razon_social: string;
-  admin_nombres: string;
-  admin_apellidos: string;
-  admin_email: string;
-  admin_password: string;
-}
-
 export function useAuthActions() {
   const iniciarSesion = useAuthStore((s) => s.iniciarSesion);
   const [cargando, setCargando] = useState(false);
@@ -39,21 +30,5 @@ export function useAuthActions() {
     }
   }
 
-  async function registrarEmpresa(payload: RegistroEmpresaPayload) {
-    setCargando(true);
-    setError(null);
-    try {
-      const { data } = await api.post<TokenResponse>("/auth/registro-empresa", payload);
-      iniciarSesion(data.access_token, data.usuario);
-      return data;
-    } catch (err) {
-      const mensaje = extraerMensajeError(err, "No se pudo registrar la empresa");
-      setError(mensaje);
-      throw new Error(mensaje);
-    } finally {
-      setCargando(false);
-    }
-  }
-
-  return { login, registrarEmpresa, cargando, error };
+  return { login, cargando, error };
 }
