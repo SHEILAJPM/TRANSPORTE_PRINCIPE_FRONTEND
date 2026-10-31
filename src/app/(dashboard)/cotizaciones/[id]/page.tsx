@@ -100,9 +100,6 @@ export default function CotizacionDetallePage() {
                     GRE <b className="text-foreground">{r.guia_remision.numero}</b>
                   </span>
                   <span>
-                    Factura <b className="text-foreground">{r.factura.numero}</b>
-                  </span>
-                  <span>
                     Constancia <b className="text-foreground">{r.constancia_pesos_medidas.numero}</b>
                   </span>
                 </span>

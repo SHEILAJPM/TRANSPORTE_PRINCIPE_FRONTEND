@@ -14,6 +14,7 @@ import {
   MapPin,
   Play,
   Receipt,
+  RefreshCw,
   Save,
   Scale,
   Send,
@@ -24,7 +25,9 @@ import { toast } from "sonner";
 import { RegistrarGastoDialog } from "@/components/viajes/registrar-gasto-dialog";
 import { ReportarNovedadDialog } from "@/components/viajes/reportar-novedad-dialog";
 import { EstadoViajeBadge } from "@/components/viajes/estado-badge";
+import { EmitirComprobanteDialog } from "@/components/viajes/emitir-comprobante-dialog";
 import { EstadoSunatBadge } from "@/components/viajes/estado-sunat-badge";
+import { VistaPreviaGuiaDialog } from "@/components/viajes/vista-previa-guia-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,15 +37,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   abrirPdf,
+  descargarArchivo,
+  rutaCdrGuiaRemision,
   rutaPdfConstancia,
   rutaPdfFactura,
   rutaPdfGuiaRemision,
+  rutaXmlGuiaRemision,
   useActualizarGuiaRemision,
   useAnularFactura,
   useEmitirFacturaSunat,
-  useEmitirGuiaRemisionSunat,
   useFactura,
   useGuiaRemision,
+  useGuiaRemisionSunat,
 } from "@/hooks/use-comprobantes";
 import { useGastos } from "@/hooks/use-gastos";
 import { useLiquidacionActions, useRentabilidad } from "@/hooks/use-liquidacion";
@@ -50,7 +56,13 @@ import { useNovedades } from "@/hooks/use-novedades";
 import { useConstanciaPorViaje, usePesosMedidasActions } from "@/hooks/use-pesos-medidas";
 import { useViaje, useViajeActions } from "@/hooks/use-viajes";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import type { Liquidacion } from "@/types/api";
+import type { Factura, GuiaRemision, Liquidacion } from "@/types/api";
+
+/** Un comprobante que ya salió (o pudo salir) hacia SUNAT; los PENDIENTE creados
+ * automáticamente por el flujo anterior y nunca enviados no cuentan. */
+function comprobanteEnviado(f: Factura) {
+  return Boolean(f.enviado_en || f.hash_cpe || f.xml_url || f.mensaje_sunat);
+}
 
 const TIPO_GASTO_LABEL: Record<string, string> = {
   COMBUSTIBLE: "Combustible",
@@ -73,8 +85,31 @@ function ViajeDetalleContenido() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabInicial = searchParams.get("tab") ?? "resumen";
+  // Al venir de "Activar viaje" se abre directamente la vista previa de la guía.
+  const abrirEmisionGuia = searchParams.get("emitir") === "guia";
   const { data: viaje, isLoading } = useViaje(params.id);
+  const { data: factura, mutate: recargarFactura } = useFactura(params.id);
   const { cambiarEstado, cargando: cambiandoEstado } = useViajeActions();
+  const [emitirComprobanteAbierto, setEmitirComprobanteAbierto] = useState(false);
+
+  // Al terminar el viaje (mercadería descargada) se emite la Factura/Boleta, salvo que
+  // ya exista una aceptada o una enviada que siga en proceso.
+  const puedeEmitirComprobante =
+    (viaje?.estado === "FINALIZADO" || viaje?.estado === "LIQUIDADO") &&
+    !(factura && (factura.estado_sunat === "ACEPTADO" || (factura.estado_sunat === "PENDIENTE" && comprobanteEnviado(factura))));
+
+  async function onComprobanteEmitido(f: Factura) {
+    await recargarFactura();
+    const nombre = `${f.tipo_documento === "FACTURA" ? "Factura" : "Boleta"} ${f.serie}-${f.numero}`;
+    if (f.estado_sunat === "ACEPTADO") toast.success(`${nombre} aceptada por SUNAT`);
+    else if (f.estado_sunat === "PENDIENTE") toast.info(`${nombre} enviada; SUNAT aún no confirma. Revisa su estado en Liquidación.`);
+    else toast.error(f.mensaje_sunat ?? `SUNAT rechazó la ${nombre}`);
+  }
+
+  async function onComprobanteError(mensaje: string) {
+    await recargarFactura();
+    toast.error(mensaje);
+  }
 
   async function transicionar(estado: "EN_RUTA" | "FINALIZADO" | "CANCELADO") {
     const extra =
@@ -119,6 +154,12 @@ function ViajeDetalleContenido() {
         </div>
 
         <div className="flex gap-2">
+          {puedeEmitirComprobante && (
+            <Button onClick={() => setEmitirComprobanteAbierto(true)}>
+              <Receipt className="h-4 w-4" />
+              Emitir factura
+            </Button>
+          )}
           {viaje.estado === "PROGRAMADO" && (
             <Button onClick={() => transicionar("EN_RUTA")} disabled={cambiandoEstado}>
               {cambiandoEstado ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
@@ -140,12 +181,24 @@ function ViajeDetalleContenido() {
         </div>
       </div>
 
+      <EmitirComprobanteDialog
+        viajeId={viaje.id}
+        viajeNumero={viaje.numero}
+        open={emitirComprobanteAbierto}
+        onOpenChange={setEmitirComprobanteAbierto}
+        onEmitido={onComprobanteEmitido}
+        onError={onComprobanteError}
+      />
+
       <Card>
         <CardContent className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-4">
           <Info label="Cliente" value={viaje.cliente?.razon_social ?? "—"} />
           <Info label="Unidad" value={`${viaje.tracto?.placa ?? "—"}${viaje.carreta ? ` / ${viaje.carreta.placa}` : ""}`} />
           <Info label="Chofer" value={viaje.chofer ? `${viaje.chofer.nombres} ${viaje.chofer.apellidos}` : "—"} />
-          <Info label="Peso / Flete" value={`${viaje.peso_tm} TM · ${formatCurrency(viaje.ingreso_flete_neto)}`} />
+          <Info
+            label="Peso / Flete"
+            value={`${viaje.peso_tm} TM · ${Number(viaje.ingreso_flete_neto) > 0 ? formatCurrency(viaje.ingreso_flete_neto) : "flete por facturar"}`}
+          />
         </CardContent>
       </Card>
 
@@ -171,7 +224,7 @@ function ViajeDetalleContenido() {
           <PesosMedidasTab viajeId={viaje.id} />
         </TabsContent>
         <TabsContent value="liquidacion">
-          <LiquidacionTab viajeId={viaje.id} />
+          <LiquidacionTab viajeId={viaje.id} abrirEmisionGuia={abrirEmisionGuia} />
         </TabsContent>
       </Tabs>
     </div>
@@ -431,12 +484,13 @@ function PesosMedidasTab({ viajeId }: { viajeId: string }) {
   );
 }
 
-function LiquidacionTab({ viajeId }: { viajeId: string }) {
+function LiquidacionTab({ viajeId, abrirEmisionGuia }: { viajeId: string; abrirEmisionGuia: boolean }) {
   const { data: guia, mutate: recargarGuia } = useGuiaRemision(viajeId);
   const { data: factura, mutate: recargarFactura } = useFactura(viajeId);
   const { data: rentabilidad, mutate: recargarRentabilidad } = useRentabilidad(viajeId);
   const { calcular, cargando } = useLiquidacionActions(viajeId);
-  const { emitir: emitirGuiaSunat, cargando: emitiendoGuia } = useEmitirGuiaRemisionSunat(viajeId);
+  const { consultar: consultarGuiaSunat, cargando: operandoGuia } = useGuiaRemisionSunat(viajeId);
+  const [vistaPreviaGuiaAbierta, setVistaPreviaGuiaAbierta] = useState(abrirEmisionGuia);
   const { emitir: emitirFacturaSunat, cargando: emitiendoFactura } = useEmitirFacturaSunat(viajeId);
   const { actualizar: actualizarGuiaRemitente, cargando: guardandoRemitente } = useActualizarGuiaRemision(viajeId);
   const { anular: anularFactura, cargando: anulando } = useAnularFactura(viajeId);
@@ -465,19 +519,33 @@ function LiquidacionTab({ viajeId }: { viajeId: string }) {
     }
   }
 
-  async function onEmitirGuiaSunat() {
-    try {
-      const data = await emitirGuiaSunat();
-      await recargarGuia();
-      if (data.estado_sunat === "ACEPTADO") {
-        toast.success("Guía de remisión aceptada por SUNAT");
-      } else {
-        toast.error(data.mensaje_sunat ?? "SUNAT rechazó el documento, revisa los datos");
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo emitir la guía a SUNAT");
+  function avisarEstadoGuia(data: GuiaRemision) {
+    if (data.estado_sunat === "ACEPTADO") {
+      toast.success("Guía de remisión aceptada por SUNAT");
+    } else if (data.estado_sunat === "PENDIENTE") {
+      toast.info(data.mensaje_sunat ?? "SUNAT todavía está procesando la guía, consulta el estado en unos minutos");
+    } else {
+      toast.error(data.mensaje_sunat ?? "SUNAT rechazó el documento, revisa los datos");
     }
   }
+
+  async function onGuiaEmitida(data: GuiaRemision) {
+    await recargarGuia();
+    avisarEstadoGuia(data);
+  }
+
+  async function onConsultarGuiaSunat() {
+    try {
+      const data = await consultarGuiaSunat();
+      await recargarGuia();
+      avisarEstadoGuia(data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo consultar el estado en SUNAT");
+    }
+  }
+
+  const guiaEnProceso = guia?.estado_sunat === "PENDIENTE" && Boolean(guia.sunat_ticket);
+  const guiaEditable = guia !== undefined && guia.estado_sunat !== "ACEPTADO" && !guiaEnProceso;
 
   async function onGuardarRemitente() {
     try {
@@ -536,22 +604,62 @@ function LiquidacionTab({ viajeId }: { viajeId: string }) {
                   <Download className="h-4 w-4" /> GRE {guia.serie}-{guia.numero} (PDF interno)
                 </Button>
                 <EstadoSunatBadge estado={guia.estado_sunat} />
-                {guia.estado_sunat !== "ACEPTADO" && (
-                  <Button size="sm" onClick={onEmitirGuiaSunat} disabled={emitiendoGuia}>
-                    {emitiendoGuia ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Emitir a SUNAT
+                {guiaEditable && (
+                  <Button size="sm" onClick={() => setVistaPreviaGuiaAbierta(true)}>
+                    <Send className="h-4 w-4" />
+                    Revisar y emitir a SUNAT
+                  </Button>
+                )}
+                {guiaEnProceso && (
+                  <Button size="sm" variant="outline" onClick={onConsultarGuiaSunat} disabled={operandoGuia !== null}>
+                    {operandoGuia === "consultar" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Consultar estado en SUNAT
+                  </Button>
+                )}
+                {guia.xml_firmado_disponible && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      descargarArchivo(rutaXmlGuiaRemision(viajeId), `GRE-${guia.serie}-${guia.numero}.xml`).catch((e) =>
+                        toast.error(e.message)
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4" /> XML
+                  </Button>
+                )}
+                {guia.cdr_disponible && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      descargarArchivo(rutaCdrGuiaRemision(viajeId), `CDR-${guia.serie}-${guia.numero}.zip`).catch((e) =>
+                        toast.error(e.message)
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4" /> CDR
                   </Button>
                 )}
                 {guia.pdf_url && (
                   <a href={guia.pdf_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary underline underline-offset-2">
-                    Ver PDF oficial de SUNAT
+                    Ver en SUNAT
                   </a>
                 )}
               </div>
-              {guia.estado_sunat === "RECHAZADO" && guia.mensaje_sunat && (
-                <p className="text-sm text-destructive">{guia.mensaje_sunat}</p>
+              {(guia.estado_sunat === "RECHAZADO" || guiaEnProceso) && guia.mensaje_sunat && (
+                <p className={cn("text-sm", guia.estado_sunat === "RECHAZADO" ? "text-destructive" : "text-muted-foreground")}>
+                  {guia.mensaje_sunat}
+                </p>
               )}
-              {guia.estado_sunat !== "ACEPTADO" && (
+              <VistaPreviaGuiaDialog
+                viajeId={viajeId}
+                open={vistaPreviaGuiaAbierta}
+                onOpenChange={setVistaPreviaGuiaAbierta}
+                onEmitida={onGuiaEmitida}
+              />
+              {guiaEditable && (
                 <div className="rounded-lg border border-dashed p-3">
                   <p className="mb-2 text-xs font-medium text-muted-foreground">
                     Guía Remitente del cliente (opcional): si el cliente ya generó su propia guía de remisión en
@@ -605,10 +713,10 @@ function LiquidacionTab({ viajeId }: { viajeId: string }) {
                   {factura.tipo_documento === "FACTURA" ? "Factura" : "Boleta"} {factura.serie}-{factura.numero} (PDF interno)
                 </Button>
                 <EstadoSunatBadge estado={factura.estado_sunat} />
-                {factura.estado_sunat !== "ACEPTADO" && (
+                {factura.estado_sunat === "PENDIENTE" && comprobanteEnviado(factura) && (
                   <Button size="sm" onClick={onEmitirFacturaSunat} disabled={emitiendoFactura}>
-                    {emitiendoFactura ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Emitir a SUNAT
+                    {emitiendoFactura ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Reintentar envío a SUNAT
                   </Button>
                 )}
                 {factura.pdf_url && (
@@ -618,7 +726,15 @@ function LiquidacionTab({ viajeId }: { viajeId: string }) {
                 )}
               </div>
               {factura.estado_sunat === "RECHAZADO" && factura.mensaje_sunat && (
-                <p className="text-sm text-destructive">{factura.mensaje_sunat}</p>
+                <p className="text-sm text-destructive">
+                  {factura.mensaje_sunat} — corrige los datos y usa “Emitir factura” para emitir uno nuevo.
+                </p>
+              )}
+              {factura.estado_sunat === "PENDIENTE" && !comprobanteEnviado(factura) && (
+                <p className="text-sm text-muted-foreground">
+                  Borrador generado automáticamente al activar el viaje (no enviado). Al terminar el viaje usa
+                  “Emitir factura” para revisar el precio y emitirlo.
+                </p>
               )}
               {factura.estado_sunat === "ANULADO" && (
                 <p className="text-sm text-muted-foreground">

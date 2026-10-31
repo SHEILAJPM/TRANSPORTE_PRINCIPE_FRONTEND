@@ -15,10 +15,21 @@ export interface UbicacionValue {
 
 const DEPARTAMENTOS = getDepartments();
 
-export function SelectorUbicacion({ onChange }: { onChange: (valor: UbicacionValue) => void }) {
-  const [depCode, setDepCode] = useState("");
-  const [provCode, setProvCode] = useState("");
-  const [distCode, setDistCode] = useState("");
+/**
+ * `ubigeoInicial` preselecciona departamento/provincia/distrito (p.ej. al importar una
+ * guía). Solo se lee al montar: para cambiarlo, el padre debe remontar con otra `key`.
+ */
+export function SelectorUbicacion({
+  onChange,
+  ubigeoInicial,
+}: {
+  onChange: (valor: UbicacionValue) => void;
+  ubigeoInicial?: string | null;
+}) {
+  const inicial = ubigeoInicial && /^\d{6}$/.test(ubigeoInicial) ? ubigeoInicial : "";
+  const [depCode, setDepCode] = useState(inicial.slice(0, 2));
+  const [provCode, setProvCode] = useState(inicial.slice(0, 4));
+  const [distCode, setDistCode] = useState(inicial);
 
   const provincias = useMemo(() => (depCode ? getProvinces(depCode) : []), [depCode]);
   const distritos = useMemo(() => (provCode ? getDistricts(provCode) : []), [provCode]);

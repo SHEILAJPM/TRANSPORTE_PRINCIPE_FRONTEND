@@ -22,6 +22,7 @@ export interface EmpresaUpdatePayload {
   serie_factura_default?: string | null;
   serie_guia_remision_default?: string | null;
   numero_registro_mtc?: string | null;
+  cuenta_detracciones?: string | null;
 }
 
 export function useEmpresaActions() {

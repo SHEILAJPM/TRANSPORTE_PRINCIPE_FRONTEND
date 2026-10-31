@@ -1,0 +1,26 @@
+# Blueprint de Render para el frontend (Next.js) de Transporte Príncipe.
+# Render → New → Blueprint → elegir este repositorio.
+#
+# El backend tiene su propio render.yaml (repositorio TRANSPORTE_PRINCIPE_BACKEND).
+# Despliega primero el backend para conocer su URL.
+
+services:
+  - type: web
+    name: transporte-principe-web
+    runtime: node
+    # Misma región que el backend y Neon (us-east-2 = Ohio).
+    region: ohio
+    # "free" se suspende tras 15 min sin uso (la primera carga tarda ~1 min);
+    # "starter" queda siempre encendido.
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start # next start usa el puerto de la variable PORT que asigna Render
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      # URL pública de la API. Next.js la fija al construir: si la cambias en Render,
+      # haz "Manual Deploy → Clear build cache & deploy" para que se aplique.
+      # Si Render le dio otra URL al backend, reemplázala aquí.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://transporte-principe-api.onrender.com/api/v1

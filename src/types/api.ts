@@ -52,6 +52,7 @@ export interface Empresa {
   serie_factura_default: string | null;
   serie_guia_remision_default: string | null;
   numero_registro_mtc: string | null;
+  cuenta_detracciones: string | null;
 }
 
 export interface Cliente {
@@ -104,7 +105,6 @@ export interface DocumentoGenerado {
 export interface ResultadoConversion {
   viaje: DocumentoGenerado;
   guia_remision: DocumentoGenerado;
-  factura: DocumentoGenerado;
   constancia_pesos_medidas: DocumentoGenerado;
 }
 
@@ -203,7 +203,6 @@ export interface Viaje {
 export interface ResultadoActivacion {
   viaje: DocumentoGenerado;
   guia_remision: DocumentoGenerado;
-  factura: DocumentoGenerado | null;
   constancia_pesos_medidas: DocumentoGenerado;
 }
 
@@ -270,12 +269,87 @@ export interface GuiaRemision {
   remitente_guia_ruc_emisor: string | null;
   remitente_guia_serie: string | null;
   remitente_guia_numero: string | null;
+  destinatario_tipo_documento: string | null;
+  destinatario_numero_documento: string | null;
+  destinatario_razon_social: string | null;
+  bienes: BienGuia[] | null;
   estado_sunat: EstadoSunat;
   hash_cpe: string | null;
   xml_url: string | null;
   cdr_url: string | null;
   pdf_url: string | null;
   mensaje_sunat: string | null;
+  sunat_ticket: string | null;
+  sunat_codigo_respuesta: string | null;
+  enviado_sunat_en: string | null;
+  xml_firmado_disponible: boolean;
+  cdr_disponible: boolean;
+}
+
+export interface BienGuia {
+  descripcion: string;
+  cantidad: number;
+  unidad: string;
+  codigo: string | null;
+}
+
+/** Parte de una guía: tipo_documento según Catálogo 06 de SUNAT ("6" RUC, "1" DNI). */
+export interface ParteGuia {
+  tipo_documento: string;
+  numero_documento: string;
+  razon_social: string;
+}
+
+export interface PuntoGuia {
+  ubigeo: string | null;
+  direccion: string | null;
+}
+
+export interface GuiaRemitenteImportada {
+  cliente: Cliente;
+  remitente_guia_ruc_emisor: string;
+  remitente_guia_serie: string;
+  remitente_guia_numero: string;
+  fecha_emision_guia: string | null;
+  destinatario: ParteGuia | null;
+  origen: PuntoGuia;
+  destino: PuntoGuia;
+  peso_tm: number | null;
+  numero_bultos: number | null;
+  fecha_inicio_traslado: string | null;
+  motivo_traslado: string | null;
+  bienes: BienGuia[];
+  advertencias: string[];
+}
+
+/** Datos exactos que se enviarán a SUNAT (espejo de DatosGuiaTransportista del backend). */
+export interface DatosGuiaTransportista {
+  serie: string;
+  numero: string;
+  transportista: ParteGuia;
+  registro_mtc: string | null;
+  remitente: ParteGuia;
+  destinatario: ParteGuia;
+  partida: { ubigeo: string; direccion: string };
+  llegada: { ubigeo: string; direccion: string };
+  fecha_inicio_traslado: string;
+  peso_bruto_kg: string;
+  vehiculo_principal: { placa: string; tarjeta_unica_circulacion: string | null };
+  vehiculos_secundarios: { placa: string; tarjeta_unica_circulacion: string | null }[];
+  conductor: { dni: string; nombres: string; apellidos: string; licencia: string };
+  bienes: { descripcion: string; cantidad: string; unidad: string; codigo: string | null }[];
+  documentos_relacionados: { tipo: string; serie: string; numero: string; ruc_emisor: string }[];
+  observaciones: string | null;
+}
+
+export interface GuiaVistaPrevia {
+  huella: string;
+  proveedor: "sunat_directo" | "apisunat";
+  puede_emitir: boolean;
+  errores: string[];
+  advertencias: string[];
+  datos: DatosGuiaTransportista;
+  xml: string | null;
 }
 
 export interface Factura {
@@ -292,12 +366,77 @@ export interface Factura {
   subtotal: number;
   igv: number;
   total: number;
+  precio_incluye_igv: boolean | null;
+  detraccion_porcentaje: number | null;
+  detraccion_monto: number | null;
+  detraccion_cuenta: string | null;
+  receptor_tipo_documento: string | null;
+  receptor_numero_documento: string | null;
+  receptor_razon_social: string | null;
+  descripcion: string | null;
   estado_sunat: EstadoSunat;
   hash_cpe: string | null;
   xml_url: string | null;
   cdr_url: string | null;
   pdf_url: string | null;
   mensaje_sunat: string | null;
+  enviado_en: string | null;
+}
+
+export type TipoComprobanteVenta = "FACTURA" | "BOLETA";
+/** CLIENTE = a nombre del cliente del viaje; SIN_DOCUMENTO = boleta a "CLIENTES VARIOS" (< S/ 700). */
+export type ReceptorComprobante = "CLIENTE" | "SIN_DOCUMENTO";
+
+export interface ComprobanteBorrador {
+  tipo_sugerido: TipoComprobanteVenta;
+  cliente: Cliente;
+  precio_sugerido: number | null;
+  precio_incluye_igv: boolean;
+  origen_precio: "COTIZACION" | "FLETE_ESTIMADO" | null;
+  descripcion_sugerida: string;
+  guia_remision: string | null;
+  guia_estado_sunat: EstadoSunat | null;
+  porcentaje_igv: number;
+  limite_boleta_sin_documento: number;
+  porcentaje_detraccion: number;
+  monto_minimo_detraccion: number;
+  cuenta_detracciones: string | null;
+  puede_emitir: boolean;
+  bloqueos: string[];
+}
+
+export interface EntradaComprobante {
+  tipo_documento: TipoComprobanteVenta;
+  precio: number;
+  precio_incluye_igv: boolean;
+  receptor: ReceptorComprobante;
+  descripcion?: string | null;
+}
+
+export interface ComprobanteVistaPrevia {
+  huella: string;
+  puede_emitir: boolean;
+  errores: string[];
+  advertencias: string[];
+  tipo_documento: TipoComprobanteVenta;
+  serie: string;
+  receptor_tipo_documento: string;
+  receptor_numero_documento: string;
+  receptor_razon_social: string;
+  descripcion: string;
+  precio_incluye_igv: boolean;
+  subtotal: number;
+  igv: number;
+  total: number;
+  porcentaje_igv: number;
+  detraccion_aplica: boolean;
+  detraccion_porcentaje: number;
+  detraccion_monto: number;
+  /** Lo que el cliente paga directamente: total − detracción. */
+  neto_a_cobrar: number;
+  detraccion_nota: string;
+  detraccion_cuenta: string | null;
+  guia_remision: string | null;
 }
 
 export interface ConstanciaPesosMedidas {

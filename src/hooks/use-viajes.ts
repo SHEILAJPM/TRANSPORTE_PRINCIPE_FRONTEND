@@ -2,13 +2,21 @@ import { useState } from "react";
 import { mutate } from "swr";
 
 import { api, extraerMensajeError } from "@/lib/api";
-import type { EstadoViaje, ModalidadViaje, ResultadoActivacion, Viaje } from "@/types/api";
+import type {
+  BienGuia,
+  EstadoViaje,
+  GuiaRemitenteImportada,
+  ModalidadViaje,
+  ResultadoActivacion,
+  Viaje,
+} from "@/types/api";
 
 import { useApiSWR } from "./use-swr-api";
 
 export interface ActivarViajePayload {
   cliente_id: string;
-  modalidad: ModalidadViaje;
+  /** Si se omite, el backend la deduce del documento del cliente (RUC/DNI). */
+  modalidad?: ModalidadViaje;
   tracto_id: string;
   chofer_id: string;
   carreta_id?: string | null;
@@ -23,13 +31,34 @@ export interface ActivarViajePayload {
   destino_departamento: string;
   destino_ubigeo?: string | null;
   peso_tm: number;
-  ingreso_flete_neto: number;
+  /** Opcional: el comprobante de venta se emite al terminar el viaje. */
+  ingreso_flete_neto?: number | null;
   fecha_salida_programada: string;
   tarifa_diaria_chofer?: number | null;
   bono_nocturno_chofer?: number | null;
   precinto_seguridad?: string | null;
   lugar_verificacion_pesos?: string | null;
-  porcentaje_igv?: number;
+  numero_bultos?: number | null;
+  motivo_traslado?: string | null;
+  destinatario_tipo_documento?: string | null;
+  destinatario_numero_documento?: string | null;
+  destinatario_razon_social?: string | null;
+  remitente_guia_ruc_emisor?: string | null;
+  remitente_guia_serie?: string | null;
+  remitente_guia_numero?: string | null;
+  bienes?: BienGuia[] | null;
+}
+
+/** Lee el XML de la guía de remitente del cliente y devuelve el viaje prellenado. */
+export async function importarGuiaRemitente(archivo: File): Promise<GuiaRemitenteImportada> {
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+  try {
+    const { data } = await api.post<GuiaRemitenteImportada>("/sunat/guia-remitente/importar", formData);
+    return data;
+  } catch (err) {
+    throw new Error(extraerMensajeError(err, "No se pudo leer la guía del cliente"));
+  }
 }
 
 export interface FiltrosViajes {

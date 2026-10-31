@@ -29,6 +29,7 @@ interface FormValues {
   serie_factura_default: string;
   serie_guia_remision_default: string;
   numero_registro_mtc: string;
+  cuenta_detracciones: string;
 }
 
 export default function EmpresaPage() {
@@ -55,6 +56,7 @@ export default function EmpresaPage() {
         serie_factura_default: empresa.serie_factura_default ?? "",
         serie_guia_remision_default: empresa.serie_guia_remision_default ?? "",
         numero_registro_mtc: empresa.numero_registro_mtc ?? "",
+        cuenta_detracciones: empresa.cuenta_detracciones ?? "",
       });
     }
   }, [empresa, reset]);
@@ -236,6 +238,21 @@ export default function EmpresaPage() {
               <Input id="numero_registro_mtc" disabled={!esAdmin} {...register("numero_registro_mtc")} />
               <p className="text-xs text-muted-foreground">
                 Se envía en cada Guía de Remisión Transportista emitida electrónicamente a SUNAT.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="cuenta_detracciones">Cuenta de detracciones (Banco de la Nación)</Label>
+              <Input
+                id="cuenta_detracciones"
+                placeholder="00-101-123456"
+                inputMode="numeric"
+                disabled={!esAdmin}
+                {...register("cuenta_detracciones")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Se imprime en cada factura sujeta a detracción (4 % en facturas de más de S/ 400) para que el cliente
+                sepa dónde depositar.
               </p>
             </div>
 
