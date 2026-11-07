@@ -89,13 +89,16 @@ function ViajeDetalleContenido() {
   const abrirEmisionGuia = searchParams.get("emitir") === "guia";
   const { data: viaje, isLoading } = useViaje(params.id);
   const { data: factura, mutate: recargarFactura } = useFactura(params.id);
+  const { data: guiaViaje } = useGuiaRemision(params.id);
   const { cambiarEstado, cargando: cambiandoEstado } = useViajeActions();
   const [emitirComprobanteAbierto, setEmitirComprobanteAbierto] = useState(false);
 
   // Al terminar el viaje (mercadería descargada) se emite la Factura/Boleta, salvo que
   // ya exista una aceptada o una enviada que siga en proceso.
+  // También con el viaje en curso si su guía ya fue aceptada por SUNAT.
   const puedeEmitirComprobante =
-    (viaje?.estado === "FINALIZADO" || viaje?.estado === "LIQUIDADO") &&
+    (viaje?.estado === "FINALIZADO" || viaje?.estado === "LIQUIDADO" ||
+      (viaje?.estado !== "CANCELADO" && guiaViaje?.estado_sunat === "ACEPTADO")) &&
     !(factura && (factura.estado_sunat === "ACEPTADO" || (factura.estado_sunat === "PENDIENTE" && comprobanteEnviado(factura))));
 
   async function onComprobanteEmitido(f: Factura) {

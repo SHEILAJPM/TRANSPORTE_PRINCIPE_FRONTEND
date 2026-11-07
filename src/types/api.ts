@@ -491,12 +491,19 @@ export interface GuiaRemisionListItem {
   viaje_numero: string;
   serie: string;
   numero: string;
+  cliente_id: string;
   cliente_razon_social: string;
+  destinatario_razon_social: string | null;
+  tracto_placa: string | null;
+  carreta_placa: string | null;
+  chofer_nombre: string | null;
   fecha_emision: string;
   peso_bruto_total_kg: number;
   estado_sunat: EstadoSunat;
   mensaje_sunat: string | null;
   pdf_url: string | null;
+  xml_firmado_disponible: boolean;
+  cdr_disponible: boolean;
 }
 
 export interface FacturaListItem {
@@ -508,12 +515,60 @@ export interface FacturaListItem {
   serie: string;
   numero: string;
   cliente_razon_social: string;
+  tracto_placa: string | null;
+  chofer_nombre: string | null;
+  guia_remision: string | null;
   fecha_emision: string;
   moneda: string;
+  subtotal: number;
+  igv: number;
   total: number;
+  detraccion_monto: number | null;
   estado_sunat: EstadoSunat;
   mensaje_sunat: string | null;
   pdf_url: string | null;
+  xml_url: string | null;
+  cdr_url: string | null;
+}
+
+/** Solo comprobantes aceptados por SUNAT; las notas de crédito restan. */
+export interface TotalesFacturacion {
+  cantidad: number;
+  base: number;
+  igv: number;
+  total: number;
+  detracciones: number;
+}
+
+export interface ViajeFacturable {
+  viaje_id: string;
+  viaje_numero: string;
+  cliente_razon_social: string;
+  origen_distrito: string;
+  destino_distrito: string;
+  fecha_salida_programada: string;
+  estado_viaje: EstadoViaje;
+  guia_remision: string | null;
+  guia_estado_sunat: EstadoSunat | null;
+}
+
+export interface ConexionSunat {
+  clave: "certificado" | "credenciales_gre" | "credenciales_sol" | "facturas";
+  nombre: string;
+  lista: boolean;
+  detalle: string;
+}
+
+export interface EstadoConexionSunat {
+  listo_para_firmar: boolean;
+  mensaje: string;
+  conexiones: ConexionSunat[];
+}
+
+export interface PruebaConexionSunat {
+  ok: boolean;
+  mensaje: string;
+  conexiones: ConexionSunat[];
 }
 
 export interface ApiErrorBody {

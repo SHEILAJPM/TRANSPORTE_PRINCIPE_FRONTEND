@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { LogoMark } from "@/components/brand/logo-mark";
+import { ConexionSunatCard } from "@/components/empresa/conexion-sunat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -267,6 +268,12 @@ export default function EmpresaPage() {
           </CardContent>
         </Card>
       </motion.form>
+
+      {esAdmin && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <ConexionSunatCard />
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -6,12 +6,16 @@ import type {
   ComprobanteBorrador,
   ComprobanteVistaPrevia,
   EntradaComprobante,
+  EstadoConexionSunat,
   EstadoSunat,
   Factura,
   FacturaListItem,
   GuiaRemision,
   GuiaRemisionListItem,
   GuiaVistaPrevia,
+  PruebaConexionSunat,
+  TotalesFacturacion,
+  ViajeFacturable,
 } from "@/types/api";
 
 import { useApiSWR } from "./use-swr-api";
@@ -23,15 +27,22 @@ export function useGuiaRemision(viajeId: string | null) {
 }
 
 export interface FiltrosComprobantes {
+  desde?: string;
+  hasta?: string;
+  cliente_id?: string;
+  placa?: string;
+  chofer_id?: string;
   estado_sunat?: EstadoSunat;
+  tipo_documento?: "FACTURA" | "BOLETA" | "NOTA_CREDITO";
   q?: string;
 }
 
 function construirQueryComprobantes(filtros?: FiltrosComprobantes) {
   if (!filtros) return "";
   const params = new URLSearchParams();
-  if (filtros.estado_sunat) params.set("estado_sunat", filtros.estado_sunat);
-  if (filtros.q) params.set("q", filtros.q);
+  for (const [clave, valor] of Object.entries(filtros)) {
+    if (valor) params.set(clave, String(valor));
+  }
   const query = params.toString();
   return query ? `?${query}` : "";
 }
@@ -42,6 +53,36 @@ export function useGuiasRemisionList(filtros?: FiltrosComprobantes) {
 
 export function useFacturasList(filtros?: FiltrosComprobantes) {
   return useApiSWR<FacturaListItem[]>(`/comprobantes/facturas${construirQueryComprobantes(filtros)}`);
+}
+
+export function useFacturasTotales(filtros?: FiltrosComprobantes) {
+  return useApiSWR<TotalesFacturacion>(`/comprobantes/facturas/totales${construirQueryComprobantes(filtros)}`);
+}
+
+/** Viajes para "Nueva factura": terminados o con la guía aceptada, sin comprobante vigente. */
+export function useFacturables(activo: boolean) {
+  return useApiSWR<ViajeFacturable[]>(activo ? "/comprobantes/facturables" : null);
+}
+
+export function useConexionSunat() {
+  const respuesta = useApiSWR<EstadoConexionSunat>("/sunat/certificado/estado", { shouldRetryOnError: false });
+  const [probando, setProbando] = useState(false);
+
+  /** Solo pide un token a SUNAT con las credenciales configuradas: no envía documentos. */
+  async function probar() {
+    setProbando(true);
+    try {
+      const { data } = await api.post<PruebaConexionSunat>("/sunat/conexion/probar");
+      await respuesta.mutate();
+      return data;
+    } catch (err) {
+      throw new Error(extraerMensajeError(err, "No se pudo probar la conexión con SUNAT"));
+    } finally {
+      setProbando(false);
+    }
+  }
+
+  return { ...respuesta, probar, probando };
 }
 
 export interface GuiaRemisionActualizarPayload {

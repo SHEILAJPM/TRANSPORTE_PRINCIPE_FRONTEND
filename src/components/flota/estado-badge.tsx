@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, parseFecha } from "@/lib/utils";
 import type { EstadoVehiculo } from "@/types/api";
 
 const CONFIG: Record<EstadoVehiculo, { label: string; variant: "success" | "warning" | "destructive" }> = {
@@ -25,7 +25,7 @@ export function VencimientoBadge({ fecha }: { fecha: string | null }) {
         vencido ? "text-destructive" : porVencer ? "text-warning" : "text-muted-foreground"
       )}
     >
-      {new Date(fecha).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" })}
+      {parseFecha(fecha).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" })}
       {vencido && " · Vencido"}
       {porVencer && ` · ${dias} d.`}
     </span>

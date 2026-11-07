@@ -14,8 +14,19 @@ export function formatCurrency(value: number | string, currency: "PEN" | "USD" =
   }).format(Number.isFinite(numero) ? numero : 0);
 }
 
+/**
+ * Convierte el texto de una fecha a Date. Una fecha sin hora ("2026-11-08") se toma como
+ * ese día en la hora local: `new Date("2026-11-08")` la leería como medianoche UTC, que en
+ * Perú (UTC-5) todavía es el día anterior.
+ */
+export function parseFecha(value: string | Date): Date {
+  if (typeof value !== "string") return value;
+  const soloFecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return soloFecha ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3])) : new Date(value);
+}
+
 export function formatDate(value: string | Date, withTime = false) {
-  const fecha = typeof value === "string" ? new Date(value) : value;
+  const fecha = parseFecha(value);
   return new Intl.DateTimeFormat("es-PE", {
     day: "2-digit",
     month: "short",

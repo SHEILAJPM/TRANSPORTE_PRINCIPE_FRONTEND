@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useChoferes } from "@/hooks/use-choferes";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, parseFecha } from "@/lib/utils";
 
 export default function ChoferesPage() {
   const { data: choferes, isLoading } = useChoferes(false);
@@ -70,7 +70,7 @@ export default function ChoferesPage() {
             </TableHeader>
             <TableBody>
               {filtrados.map((c, i) => {
-                const licenciaVencida = new Date(c.licencia_vencimiento) < hoy;
+                const licenciaVencida = parseFecha(c.licencia_vencimiento) < hoy;
                 return (
                   <motion.tr
                     key={c.id}

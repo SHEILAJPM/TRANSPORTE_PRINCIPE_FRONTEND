@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +38,10 @@ export default function LoginPage() {
   const router = useRouter();
   const { token, usuario, hidratado } = useAuthStore();
   const { login, cargando } = useAuthActions();
+  // Hasta que React carga, el botón queda desactivado: si no, en una conexión lenta el
+  // navegador enviaría el formulario como HTML y dejaría la contraseña en la URL.
+  const [listo, setListo] = useState(false);
+  useEffect(() => setListo(true), []);
 
   useEffect(() => {
     if (hidratado && token) router.replace(rutaInicioPara(usuario?.rol));
@@ -106,7 +110,7 @@ export default function LoginPage() {
 
           <h2 className="text-xl font-semibold">Bienvenido de nuevo</h2>
           <p className="mb-6 mt-1 text-sm text-muted-foreground">Ingresa tus credenciales para continuar.</p>
-          <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+          <form method="post" onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Correo electrónico</Label>
               <div className="relative">
@@ -127,9 +131,9 @@ export default function LoginPage() {
                 <p className="text-xs text-destructive">{loginForm.formState.errors.password.message}</p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={cargando}>
+            <Button type="submit" className="w-full" disabled={!listo || cargando}>
               {cargando && <Loader2 className="h-4 w-4 animate-spin" />}
-              Ingresar
+              {listo ? "Ingresar" : "Cargando…"}
             </Button>
           </form>
           <p className="mt-6 text-center text-xs text-muted-foreground">

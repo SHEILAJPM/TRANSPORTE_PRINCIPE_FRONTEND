@@ -435,7 +435,7 @@ export function EmitirComprobanteDialog({
               />
             </div>
 
-            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               Guía relacionada:{" "}
               {borrador.guia_remision ? (
                 <>
@@ -449,7 +449,7 @@ export function EmitirComprobanteDialog({
               ) : (
                 "ninguna"
               )}
-            </p>
+            </div>
           </div>
         )}
 
