@@ -185,6 +185,26 @@ export function FiltrosComprobantesBar({ valor, onChange, mostrarTipo = false }:
         ) : (
           <span />
         )}
+        {mostrarTipo && (
+          <div className="w-full space-y-1 sm:w-56">
+            <Label className="text-xs text-muted-foreground">Detracción</Label>
+            <Select
+              value={valor.detraccion ?? TODOS}
+              onValueChange={(v) =>
+                cambiar({ detraccion: v === TODOS ? undefined : (v as FiltrosComprobantes["detraccion"]) })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Todas</SelectItem>
+                <SelectItem value="PENDIENTE">Pendientes de depósito</SelectItem>
+                <SelectItem value="DEPOSITADA">Depositadas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <Button type="button" variant="ghost" size="sm" onClick={limpiar}>
           <FilterX className="h-4 w-4" /> Quitar filtros
         </Button>

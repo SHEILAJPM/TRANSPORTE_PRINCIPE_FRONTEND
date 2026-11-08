@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 
 import { FiltrosComprobantesBar, mesActual, rangoDelMes } from "@/components/comprobantes/filtros-comprobantes";
+import { DepositoDetraccionDialog } from "@/components/comprobantes/deposito-detraccion-dialog";
 import { NuevaFacturaDialog } from "@/components/comprobantes/nueva-factura-dialog";
 import { EmitirComprobanteDialog } from "@/components/viajes/emitir-comprobante-dialog";
 import { EstadoSunatBadge } from "@/components/viajes/estado-sunat-badge";
@@ -22,7 +23,7 @@ import {
   type FiltrosComprobantes,
 } from "@/hooks/use-comprobantes";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { Factura, ViajeFacturable } from "@/types/api";
+import type { Factura, FacturaListItem, ViajeFacturable } from "@/types/api";
 
 const TIPO_LABEL: Record<string, string> = { FACTURA: "Factura", BOLETA: "Boleta", NOTA_CREDITO: "Nota de crédito" };
 
@@ -36,6 +37,7 @@ export default function FacturasPage() {
   const { data: totales } = useFacturasTotales(filtros);
   const [eligiendo, setEligiendo] = useState(false);
   const [viaje, setViaje] = useState<ViajeFacturable | null>(null);
+  const [detraccion, setDetraccion] = useState<FacturaListItem | null>(null);
 
   async function onEmitido(f: Factura) {
     await recargarListados();
@@ -71,6 +73,14 @@ export default function FacturasPage() {
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{etiqueta}</p>
               <p className="mt-1 text-xl font-bold">{valor === undefined ? "—" : formatCurrency(valor as number)}</p>
+              {etiqueta === "Detracciones" && totales && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Depositadas {formatCurrency(totales.detracciones_depositadas)} ·{" "}
+                  <span className={totales.detracciones_pendientes > 0 ? "font-medium text-warning" : ""}>
+                    pendientes {formatCurrency(totales.detracciones_pendientes)}
+                  </span>
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -129,8 +139,32 @@ export default function FacturasPage() {
                     {f.tipo_documento === "NOTA_CREDITO" ? "−" : ""}
                     {formatCurrency(f.total)}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-muted-foreground">
-                    {f.detraccion_monto ? formatCurrency(f.detraccion_monto) : "—"}
+                  <TableCell className="whitespace-nowrap text-right">
+                    {f.detraccion_monto ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-muted-foreground">{formatCurrency(f.detraccion_monto)}</span>
+                        {f.detraccion_estado === "DEPOSITADA" ? (
+                          <button
+                            type="button"
+                            title={`Constancia ${f.detraccion_constancia ?? ""} · ${f.detraccion_fecha_deposito ? formatDate(f.detraccion_fecha_deposito) : ""}`}
+                            onClick={() => setDetraccion(f)}
+                            className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800"
+                          >
+                            Depositada · {f.detraccion_depositada_por === "EMPRESA" ? "por mí" : "cliente"}
+                          </button>
+                        ) : f.estado_sunat === "ACEPTADO" ? (
+                          <button
+                            type="button"
+                            onClick={() => setDetraccion(f)}
+                            className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/25"
+                          >
+                            Pendiente · registrar
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <EstadoSunatBadge estado={f.estado_sunat} />
@@ -177,6 +211,7 @@ export default function FacturasPage() {
         )}
       </div>
 
+      <DepositoDetraccionDialog factura={detraccion} onClose={() => setDetraccion(null)} />
       <NuevaFacturaDialog
         open={eligiendo}
         onOpenChange={setEligiendo}

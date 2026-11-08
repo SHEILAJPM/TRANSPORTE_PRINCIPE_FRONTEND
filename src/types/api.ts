@@ -524,12 +524,20 @@ export interface FacturaListItem {
   igv: number;
   total: number;
   detraccion_monto: number | null;
+  /** null = no lleva detracción. */
+  detraccion_estado: "PENDIENTE" | "DEPOSITADA" | null;
+  detraccion_depositada_por: DepositanteDetraccion | null;
+  detraccion_fecha_deposito: string | null;
+  detraccion_constancia: string | null;
   estado_sunat: EstadoSunat;
   mensaje_sunat: string | null;
   pdf_url: string | null;
   xml_url: string | null;
   cdr_url: string | null;
 }
+
+/** Quién depositó la detracción en el Banco de la Nación. */
+export type DepositanteDetraccion = "CLIENTE" | "EMPRESA";
 
 /** Solo comprobantes aceptados por SUNAT; las notas de crédito restan. */
 export interface TotalesFacturacion {
@@ -538,6 +546,8 @@ export interface TotalesFacturacion {
   igv: number;
   total: number;
   detracciones: number;
+  detracciones_depositadas: number;
+  detracciones_pendientes: number;
 }
 
 export interface ViajeFacturable {

@@ -5,6 +5,7 @@ import { api, extraerMensajeError } from "@/lib/api";
 import type {
   ComprobanteBorrador,
   ComprobanteVistaPrevia,
+  DepositanteDetraccion,
   EntradaComprobante,
   EstadoConexionSunat,
   EstadoSunat,
@@ -34,6 +35,7 @@ export interface FiltrosComprobantes {
   chofer_id?: string;
   estado_sunat?: EstadoSunat;
   tipo_documento?: "FACTURA" | "BOLETA" | "NOTA_CREDITO";
+  detraccion?: "PENDIENTE" | "DEPOSITADA";
   q?: string;
 }
 
@@ -62,6 +64,37 @@ export function useFacturasTotales(filtros?: FiltrosComprobantes) {
 /** Viajes para "Nueva factura": terminados o con la guía aceptada, sin comprobante vigente. */
 export function useFacturables(activo: boolean) {
   return useApiSWR<ViajeFacturable[]>(activo ? "/comprobantes/facturables" : null);
+}
+
+export interface DepositoDetraccionPayload {
+  depositada_por: DepositanteDetraccion;
+  fecha_deposito: string;
+  numero_constancia: string;
+  monto?: number | null;
+}
+
+/** Registra (o deshace) la constancia de depósito de la detracción de un comprobante. */
+export function useDepositoDetraccion() {
+  const [cargando, setCargando] = useState(false);
+
+  async function ejecutar(fn: () => Promise<unknown>, fallback: string) {
+    setCargando(true);
+    try {
+      await fn();
+      await mutate((clave) => typeof clave === "string" && clave.startsWith("/comprobantes"));
+    } catch (err) {
+      throw new Error(extraerMensajeError(err, fallback));
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  const registrar = (facturaId: string, payload: DepositoDetraccionPayload) =>
+    ejecutar(() => api.put(`/comprobantes/facturas/${facturaId}/detraccion`, payload), "No se pudo registrar el depósito");
+  const quitar = (facturaId: string) =>
+    ejecutar(() => api.delete(`/comprobantes/facturas/${facturaId}/detraccion`), "No se pudo quitar el registro");
+
+  return { registrar, quitar, cargando };
 }
 
 export function useConexionSunat() {
