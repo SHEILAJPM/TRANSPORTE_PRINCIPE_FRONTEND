@@ -23,12 +23,12 @@ export default function FlotaPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Flota</h2>
-        <p className="text-sm text-muted-foreground">Tractos, carretas, mantenimiento preventivo y vencimientos.</p>
+        <p className="text-sm text-muted-foreground">Camiones, carretas, mantenimiento preventivo y vencimientos.</p>
       </div>
 
       <Tabs defaultValue="tractos">
         <TabsList>
-          <TabsTrigger value="tractos">Tractos</TabsTrigger>
+          <TabsTrigger value="tractos">Camiones</TabsTrigger>
           <TabsTrigger value="carretas">Carretas</TabsTrigger>
           <TabsTrigger value="alertas">
             Alertas {alertas && alertas.length > 0 ? `(${alertas.length})` : ""}
@@ -48,7 +48,7 @@ export default function FlotaPage() {
             ) : (tractos ?? []).length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <Truck className="h-10 w-10 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">Aún no hay tractos registrados.</p>
+                <p className="text-sm text-muted-foreground">Aún no hay camiones registrados.</p>
               </div>
             ) : (
               <Table>

@@ -83,7 +83,7 @@ export function TractoFormDialog({ tracto, trigger }: { tracto?: Tracto; trigger
           modelo: values.modelo || null,
           ...dimensiones,
         });
-        toast.success("Tracto actualizado");
+        toast.success("Camión actualizado");
       } else {
         await crearTracto({
           placa: values.placa.toUpperCase(),
@@ -93,11 +93,11 @@ export function TractoFormDialog({ tracto, trigger }: { tracto?: Tracto; trigger
           kilometraje_actual: Number(values.kilometraje_actual) || 0,
           ...dimensiones,
         });
-        toast.success("Tracto registrado");
+        toast.success("Camión registrado");
       }
       setAbierto(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo guardar el tracto");
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el camión");
     }
   }
 
@@ -106,13 +106,13 @@ export function TractoFormDialog({ tracto, trigger }: { tracto?: Tracto; trigger
       <DialogTrigger asChild>
         {trigger ?? (
           <Button size="sm">
-            <Plus /> Nuevo tracto
+            <Plus /> Nuevo camión
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
-          <DialogTitle>{esEdicion ? "Editar tracto" : "Registrar tracto"}</DialogTitle>
+          <DialogTitle>{esEdicion ? "Editar camión" : "Registrar camión"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">

@@ -107,7 +107,7 @@ export function FiltrosComprobantesBar({ valor, onChange, mostrarTipo = false }:
         </div>
         <div className="space-y-1">
           <Label htmlFor="filtro-placa" className="text-xs text-muted-foreground">Placa</Label>
-          <Input id="filtro-placa" placeholder="Tracto o carreta" value={placa} onChange={(e) => setPlaca(e.target.value)} />
+          <Input id="filtro-placa" placeholder="Camión o carreta" value={placa} onChange={(e) => setPlaca(e.target.value)} />
         </div>
       </div>
 

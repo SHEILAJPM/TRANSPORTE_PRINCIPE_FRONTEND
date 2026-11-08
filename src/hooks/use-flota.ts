@@ -75,7 +75,7 @@ export function useFlotaActions() {
       await revalidarFlota();
       return data;
     } catch (err) {
-      throw new Error(extraerMensajeError(err, "No se pudo registrar el tracto"));
+      throw new Error(extraerMensajeError(err, "No se pudo registrar el camión"));
     } finally {
       setCargando(false);
     }
@@ -88,7 +88,7 @@ export function useFlotaActions() {
       await revalidarFlota();
       return data;
     } catch (err) {
-      throw new Error(extraerMensajeError(err, "No se pudo actualizar el tracto"));
+      throw new Error(extraerMensajeError(err, "No se pudo actualizar el camión"));
     } finally {
       setCargando(false);
     }

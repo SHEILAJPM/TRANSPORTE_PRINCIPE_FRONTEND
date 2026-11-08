@@ -111,7 +111,7 @@ export function ConvertirCotizacionDialog({
             Conversión de 1 clic a Viaje
           </DialogTitle>
           <DialogDescription>
-            Asigna tracto, chofer y fecha de salida por cada unidad. Se generarán automáticamente la Guía de
+            Asigna camión, chofer y fecha de salida por cada unidad. Se generarán automáticamente la Guía de
             Remisión y la Constancia de Pesos y Medidas{sufijoUnidades(cotizacion)}.
           </DialogDescription>
         </DialogHeader>
@@ -164,13 +164,13 @@ export function ConvertirCotizacionDialog({
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Tracto</Label>
+                  <Label>Camión</Label>
                   <Select
                     value={watch(`asignaciones.${index}.tracto_id`)}
                     onValueChange={(v) => setValue(`asignaciones.${index}.tracto_id`, v)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un tracto" />
+                      <SelectValue placeholder="Selecciona un camión" />
                     </SelectTrigger>
                     <SelectContent>
                       {tractos?.map((t) => (

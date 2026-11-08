@@ -178,7 +178,7 @@ export default function ActivarViajePage() {
       return;
     }
     if (!values.tracto_id || !values.chofer_id) {
-      toast.error("Elige el camión (tracto) y el chofer");
+      toast.error("Elige el camión y el chofer");
       return;
     }
     const destinatario = destinatarioEsCliente
@@ -530,10 +530,10 @@ export default function ActivarViajePage() {
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">
-                  <Label>Tracto</Label>
+                  <Label>Camión</Label>
                   <Select value={watch("tracto_id")} onValueChange={(v) => setValue("tracto_id", v)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un tracto" />
+                      <SelectValue placeholder="Selecciona un camión" />
                     </SelectTrigger>
                     <SelectContent>
                       {tractos?.map((t) => (

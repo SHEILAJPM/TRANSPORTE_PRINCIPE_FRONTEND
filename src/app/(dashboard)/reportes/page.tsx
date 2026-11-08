@@ -77,7 +77,7 @@ export default function ReportesPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="placa">Placa</Label>
-            <Input id="placa" placeholder="Tracto o carreta" value={placa} onChange={(e) => setPlaca(e.target.value)} />
+            <Input id="placa" placeholder="Camión o carreta" value={placa} onChange={(e) => setPlaca(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="ciudad">Ciudad / provincia</Label>
