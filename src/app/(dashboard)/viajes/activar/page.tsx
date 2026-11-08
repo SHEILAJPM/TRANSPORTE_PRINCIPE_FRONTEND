@@ -16,11 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { SelectorUbicacion } from "@/components/ubicacion/selector-ubicacion";
 import { useChoferes } from "@/hooks/use-choferes";
 import { useCarretas, useTractos } from "@/hooks/use-flota";
 import { useSunatAutocompletarCliente } from "@/hooks/use-sunat";
-import { consultarGuiaRemitente, importarGuiaRemitente, useViajeActions } from "@/hooks/use-viajes";
+import { consultarGuiaRemitente, importarGuiaRemitente, leerGuiaRemitenteTexto, useViajeActions } from "@/hooks/use-viajes";
 import type { BienGuia, Cliente, GuiaRemitenteImportada } from "@/types/api";
 
 interface FormValues {
@@ -73,6 +74,7 @@ export default function ActivarViajePage() {
   const [guia, setGuia] = useState<GuiaRemitenteImportada | null>(null);
   const [importando, setImportando] = useState(false);
   const [datosGuia, setDatosGuia] = useState({ ruc: "", serie: "", numero: "" });
+  const [detalleSol, setDetalleSol] = useState("");
   const { autocompletar: autocompletarCliente, cargando: usandoDatos } = useSunatAutocompletarCliente();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [destinatarioEsCliente, setDestinatarioEsCliente] = useState(true);
@@ -121,6 +123,21 @@ export default function ActivarViajePage() {
     setBienes(datos.bienes);
     setDestinatarioEsCliente(false);
     setVersionUbicacion((v) => v + 1);
+  }
+
+  async function onLeerDetalleSol() {
+    if (detalleSol.trim().length < 40) return toast.error("Pega todo el Detalle de GRE que copiaste de SOL");
+    setImportando(true);
+    try {
+      const datos = await leerGuiaRemitenteTexto(detalleSol);
+      aplicarGuia(datos);
+      setDetalleSol("");
+      toast.success(`Guía ${datos.remitente_guia_serie}-${datos.remitente_guia_numero} leída: revisa los datos`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo leer el detalle de la guía");
+    } finally {
+      setImportando(false);
+    }
   }
 
   async function onUsarDatosGuia() {
@@ -289,7 +306,7 @@ export default function ActivarViajePage() {
                 <span className="flex items-center gap-2 text-base">
                   <FileUp className="h-5 w-5" /> Sí
                 </span>
-                <span className="text-xs font-normal opacity-80">Subo el XML de su guía y se llenan los datos</span>
+                <span className="text-xs font-normal opacity-80">Pego o subo su guía y se llenan los datos</span>
               </Button>
               <Button
                 type="button"
@@ -307,7 +324,30 @@ export default function ActivarViajePage() {
 
             {origen === "con-guia" && (
               <div className="space-y-3 rounded-lg border border-dashed p-4">
-                <Label htmlFor="archivo-guia">Guía de Remisión Remitente del cliente (XML o PDF)</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="detalle-sol">Pega el Detalle de GRE de SUNAT (lo más rápido)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    En SOL: Empresas → Guía de Remisión Electrónica → Consulta de GRE → abre la guía del cliente →
+                    selecciona todo con el mouse (desde el nombre de la empresa hasta &ldquo;Observaciones&rdquo;), copia con Ctrl+C
+                    y pega aquí con Ctrl+V.
+                  </p>
+                  <Textarea
+                    id="detalle-sol"
+                    rows={4}
+                    placeholder={"QUIVY PLAST E.I.R.L.\nRUC N° 20610407685\nN° T001 - 00000645\nPunto de partida: ...\nPunto de llegada: ..."}
+                    value={detalleSol}
+                    onChange={(e) => setDetalleSol(e.target.value)}
+                    disabled={importando || usandoDatos}
+                  />
+                  <Button type="button" onClick={onLeerDetalleSol} disabled={importando || usandoDatos || !detalleSol.trim()}>
+                    {importando && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Leer guía
+                  </Button>
+                </div>
+
+                <Label htmlFor="archivo-guia" className="block border-t pt-3">
+                  O sube el archivo de su guía (XML o PDF)
+                </Label>
                 <Input
                   id="archivo-guia"
                   ref={archivoRef}

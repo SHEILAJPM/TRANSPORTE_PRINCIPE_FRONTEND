@@ -61,6 +61,16 @@ export async function importarGuiaRemitente(archivo: File): Promise<GuiaRemitent
   }
 }
 
+/** Lee el "Detalle de GRE" copiado desde SUNAT SOL y devuelve el viaje prellenado. */
+export async function leerGuiaRemitenteTexto(texto: string): Promise<GuiaRemitenteImportada> {
+  try {
+    const { data } = await api.post<GuiaRemitenteImportada>("/sunat/guia-remitente/texto", { texto });
+    return data;
+  } catch (err) {
+    throw new Error(extraerMensajeError(err, "No se pudo leer el detalle de la guía"));
+  }
+}
+
 /** Trae de SUNAT la guía de remitente del cliente con su RUC, serie y número. */
 export async function consultarGuiaRemitente(ruc: string, serie: string, numero: string): Promise<GuiaRemitenteImportada> {
   try {
