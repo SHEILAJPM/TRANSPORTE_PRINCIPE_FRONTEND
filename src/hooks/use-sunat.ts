@@ -22,3 +22,29 @@ export function useSunatAutocompletarCliente() {
 
   return { autocompletar, cargando };
 }
+
+export interface DniConsulta {
+  numero_documento: string;
+  nombres: string;
+  apellido_paterno: string;
+  apellido_materno: string;
+}
+
+/** Nombres y apellidos por DNI desde RENIEC (vía Decolecta). Cada consulta se cobra. */
+export function useConsultaDni() {
+  const [cargando, setCargando] = useState(false);
+
+  async function consultar(dni: string) {
+    setCargando(true);
+    try {
+      const { data } = await api.get<DniConsulta>(`/sunat/dni/${dni}`);
+      return data;
+    } catch (err) {
+      throw new Error(extraerMensajeError(err, "No se pudo consultar el DNI en RENIEC"));
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  return { consultar, cargando };
+}

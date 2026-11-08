@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { SelectorUbicacion } from "@/components/ubicacion/selector-ubicacion";
 import { useChoferes } from "@/hooks/use-choferes";
 import { useCarretas, useTractos } from "@/hooks/use-flota";
+import { useSunatAutocompletarCliente } from "@/hooks/use-sunat";
 import { importarGuiaRemitente, useViajeActions } from "@/hooks/use-viajes";
 import type { BienGuia, Cliente, GuiaRemitenteImportada } from "@/types/api";
 
@@ -71,6 +72,8 @@ export default function ActivarViajePage() {
   const [origen, setOrigen] = useState<Origen | null>(null);
   const [guia, setGuia] = useState<GuiaRemitenteImportada | null>(null);
   const [importando, setImportando] = useState(false);
+  const [datosGuia, setDatosGuia] = useState({ ruc: "", serie: "", numero: "" });
+  const { autocompletar: autocompletarCliente, cargando: usandoDatos } = useSunatAutocompletarCliente();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [destinatarioEsCliente, setDestinatarioEsCliente] = useState(true);
   const [bienes, setBienes] = useState<BienGuia[]>([]);
@@ -90,6 +93,40 @@ export default function ActivarViajePage() {
     setDestinatarioEsCliente(valor === "manual");
     reset({ destinatario_tipo_documento: "6" });
     setVersionUbicacion((v) => v + 1);
+  }
+
+  async function onUsarDatosGuia() {
+    const { ruc, serie, numero } = datosGuia;
+    if (!/^\d{11}$/.test(ruc)) return toast.error("El RUC debe tener 11 dígitos");
+    if (!/^[A-Z][A-Z0-9]{3}$/.test(serie)) return toast.error("La serie tiene 4 caracteres y empieza con letra (p.ej. T001 o EG07)");
+    if (!/^\d{1,8}$/.test(numero)) return toast.error("El número tiene hasta 8 dígitos");
+    try {
+      const clienteRuc = await autocompletarCliente("RUC", ruc);
+      reset({ destinatario_tipo_documento: "6" });
+      setGuia({
+        cliente: clienteRuc,
+        remitente_guia_ruc_emisor: ruc,
+        remitente_guia_serie: serie,
+        remitente_guia_numero: numero.padStart(8, "0"),
+        fecha_emision_guia: null,
+        destinatario: null,
+        origen: { ubigeo: null, direccion: null },
+        destino: { ubigeo: null, direccion: null },
+        peso_tm: null,
+        numero_bultos: null,
+        fecha_inicio_traslado: null,
+        motivo_traslado: null,
+        bienes: [],
+        advertencias: ["Completa a mano la ruta, el peso, la carga y el destinatario según la guía del cliente."],
+      });
+      setCliente(clienteRuc);
+      setBienes([]);
+      setDestinatarioEsCliente(true);
+      setVersionUbicacion((v) => v + 1);
+      toast.success(`Guía ${serie}-${numero.padStart(8, "0")} de ${clienteRuc.razon_social}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo consultar el RUC");
+    }
   }
 
   async function onArchivoGuia(archivo: File | undefined) {
@@ -252,15 +289,51 @@ export default function ActivarViajePage() {
 
             {origen === "con-guia" && (
               <div className="space-y-3 rounded-lg border border-dashed p-4">
-                <Label htmlFor="archivo-guia">XML de la Guía de Remisión Remitente del cliente</Label>
+                <Label htmlFor="archivo-guia">Guía de Remisión Remitente del cliente (XML o PDF)</Label>
                 <Input
                   id="archivo-guia"
                   ref={archivoRef}
                   type="file"
-                  accept=".xml,text/xml,application/xml"
-                  disabled={importando}
+                  accept=".xml,.pdf,text/xml,application/xml,application/pdf"
+                  disabled={importando || usandoDatos}
                   onChange={(e) => onArchivoGuia(e.target.files?.[0])}
                 />
+                <p className="text-xs text-muted-foreground">
+                  El XML llena todo. Del PDF se leen los datos principales y te avisa qué completar.
+                </p>
+
+                <div className="space-y-2 border-t pt-3">
+                  <p className="text-sm font-medium">¿No tienes el archivo? Escribe el RUC y la serie-número de su guía</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_6rem_8rem_auto]">
+                    <Input
+                      aria-label="RUC del cliente"
+                      placeholder="RUC (11 dígitos)"
+                      inputMode="numeric"
+                      maxLength={11}
+                      value={datosGuia.ruc}
+                      onChange={(e) => setDatosGuia({ ...datosGuia, ruc: e.target.value.replace(/\D/g, "") })}
+                    />
+                    <Input
+                      aria-label="Serie de la guía"
+                      placeholder="Serie"
+                      maxLength={4}
+                      value={datosGuia.serie}
+                      onChange={(e) => setDatosGuia({ ...datosGuia, serie: e.target.value.toUpperCase() })}
+                    />
+                    <Input
+                      aria-label="Número de la guía"
+                      placeholder="Número"
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={datosGuia.numero}
+                      onChange={(e) => setDatosGuia({ ...datosGuia, numero: e.target.value.replace(/\D/g, "") })}
+                    />
+                    <Button type="button" variant="outline" onClick={onUsarDatosGuia} disabled={usandoDatos || importando}>
+                      {usandoDatos && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Usar estos datos
+                    </Button>
+                  </div>
+                </div>
                 {importando && (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" /> Leyendo la guía…

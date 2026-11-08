@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useChoferActions } from "@/hooks/use-choferes";
+import { useChoferActions, useChoferes } from "@/hooks/use-choferes";
+import { useConsultaDni } from "@/hooks/use-sunat";
 import type { Chofer } from "@/types/api";
 
 interface FormValues {
@@ -32,7 +33,11 @@ export function ChoferFormDialog({ chofer, trigger }: { chofer?: Chofer; trigger
   const { crear, actualizar, cargando } = useChoferActions();
   const esEdicion = Boolean(chofer);
 
-  const { register, handleSubmit, reset } = useForm<FormValues>({
+  const { consultar, cargando: consultandoDni } = useConsultaDni();
+  const { data: choferesRegistrados } = useChoferes(false);
+  const [dniConsultado, setDniConsultado] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, watch, setValue, getValues } = useForm<FormValues>({
     defaultValues: { licencia_categoria: "A-III-C", tarifa_diaria_default: 0, bono_nocturno_default: 0 },
   });
 
@@ -53,9 +58,38 @@ export function ChoferFormDialog({ chofer, trigger }: { chofer?: Chofer; trigger
         bono_nocturno_default: chofer.bono_nocturno_default,
       });
     } else if (abierto) {
+      setDniConsultado(null);
       reset({ licencia_categoria: "A-III-C", tarifa_diaria_default: 0, bono_nocturno_default: 0, dni: "", nombres: "", apellidos: "", telefono: "", direccion: "", licencia_numero: "", licencia_vencimiento: "", examen_medico_fecha: "", examen_medico_vencimiento: "" });
     }
   }, [abierto, chofer, reset]);
+
+  // Al completar los 8 dígitos del DNI (solo al registrar) se traen nombres y apellidos de RENIEC.
+  const dni = watch("dni") ?? "";
+  useEffect(() => {
+    if (!abierto || esEdicion || !/^\d{8}$/.test(dni) || dni === dniConsultado) return;
+    if (choferesRegistrados?.some((c) => c.dni === dni)) {
+      toast.error(`Ya hay un chofer registrado con el DNI ${dni}`);
+      setDniConsultado(dni);
+      return;
+    }
+    void buscarDni(dni);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dni, abierto, esEdicion]);
+
+  async function buscarDni(numero: string) {
+    setDniConsultado(numero);
+    try {
+      const datos = await consultar(numero);
+      setValue("nombres", datos.nombres, { shouldValidate: true });
+      setValue("apellidos", `${datos.apellido_paterno} ${datos.apellido_materno}`.trim(), { shouldValidate: true });
+      if (!getValues("licencia_numero")) {
+        setValue("licencia_numero", `Q${numero}`);
+      }
+      toast.success(`DNI encontrado: ${datos.nombres} ${datos.apellido_paterno}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo consultar el DNI");
+    }
+  }
 
   async function onSubmit(values: FormValues) {
     try {
@@ -114,7 +148,29 @@ export function ChoferFormDialog({ chofer, trigger }: { chofer?: Chofer; trigger
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="dni">DNI</Label>
-              <Input id="dni" maxLength={8} disabled={esEdicion} {...register("dni", { required: !esEdicion })} />
+              <div className="relative">
+                <Input
+                  id="dni"
+                  maxLength={8}
+                  inputMode="numeric"
+                  placeholder="8 dígitos"
+                  disabled={esEdicion}
+                  className="pr-9"
+                  {...register("dni", { required: !esEdicion, pattern: /^\d{8}$/ })}
+                />
+                {!esEdicion && (
+                  <button
+                    type="button"
+                    title="Buscar nombres en RENIEC"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    disabled={consultandoDni || !/^\d{8}$/.test(dni)}
+                    onClick={() => buscarDni(dni)}
+                  >
+                    {consultandoDni ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </button>
+                )}
+              </div>
+              {!esEdicion && <p className="text-xs text-muted-foreground">Al escribir el DNI se completan los nombres (RENIEC).</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="telefono">Teléfono</Label>
@@ -136,7 +192,8 @@ export function ChoferFormDialog({ chofer, trigger }: { chofer?: Chofer; trigger
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="licencia_numero">N.° de licencia</Label>
-              <Input id="licencia_numero" {...register("licencia_numero", { required: true })} />
+              <Input id="licencia_numero" placeholder="p.ej. Q87654321" {...register("licencia_numero", { required: true })} />
+              <p className="text-xs text-muted-foreground">Verifica la letra en la licencia física.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="licencia_categoria">Categoría</Label>
