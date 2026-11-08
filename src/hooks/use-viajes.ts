@@ -61,6 +61,16 @@ export async function importarGuiaRemitente(archivo: File): Promise<GuiaRemitent
   }
 }
 
+/** Trae de SUNAT la guía de remitente del cliente con su RUC, serie y número. */
+export async function consultarGuiaRemitente(ruc: string, serie: string, numero: string): Promise<GuiaRemitenteImportada> {
+  try {
+    const { data } = await api.post<GuiaRemitenteImportada>("/sunat/guia-remitente/consultar", { ruc, serie, numero });
+    return data;
+  } catch (err) {
+    throw new Error(extraerMensajeError(err, "SUNAT no entregó la guía"));
+  }
+}
+
 export interface FiltrosViajes {
   estado?: EstadoViaje;
   chofer_id?: string;

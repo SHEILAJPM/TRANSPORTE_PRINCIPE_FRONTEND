@@ -20,7 +20,7 @@ import { SelectorUbicacion } from "@/components/ubicacion/selector-ubicacion";
 import { useChoferes } from "@/hooks/use-choferes";
 import { useCarretas, useTractos } from "@/hooks/use-flota";
 import { useSunatAutocompletarCliente } from "@/hooks/use-sunat";
-import { importarGuiaRemitente, useViajeActions } from "@/hooks/use-viajes";
+import { consultarGuiaRemitente, importarGuiaRemitente, useViajeActions } from "@/hooks/use-viajes";
 import type { BienGuia, Cliente, GuiaRemitenteImportada } from "@/types/api";
 
 interface FormValues {
@@ -95,11 +95,53 @@ export default function ActivarViajePage() {
     setVersionUbicacion((v) => v + 1);
   }
 
+  function aplicarGuia(datos: GuiaRemitenteImportada) {
+    const partida = nombresUbigeo(datos.origen.ubigeo);
+    const llegada = nombresUbigeo(datos.destino.ubigeo);
+    reset({
+      origen_direccion: datos.origen.direccion ?? "",
+      origen_departamento: partida.departamento,
+      origen_provincia: partida.provincia,
+      origen_distrito: partida.distrito,
+      origen_ubigeo: partida.ubigeo,
+      destino_direccion: datos.destino.direccion ?? "",
+      destino_departamento: llegada.departamento,
+      destino_provincia: llegada.provincia,
+      destino_distrito: llegada.distrito,
+      destino_ubigeo: llegada.ubigeo,
+      peso_tm: datos.peso_tm ?? undefined,
+      numero_bultos: datos.numero_bultos ? String(datos.numero_bultos) : "",
+      fecha_salida_programada: datos.fecha_inicio_traslado ? `${datos.fecha_inicio_traslado}T08:00` : "",
+      destinatario_tipo_documento: datos.destinatario?.tipo_documento ?? "6",
+      destinatario_numero_documento: datos.destinatario?.numero_documento ?? "",
+      destinatario_razon_social: datos.destinatario?.razon_social ?? "",
+    });
+    setGuia(datos);
+    setCliente(datos.cliente);
+    setBienes(datos.bienes);
+    setDestinatarioEsCliente(false);
+    setVersionUbicacion((v) => v + 1);
+  }
+
   async function onUsarDatosGuia() {
     const { ruc, serie, numero } = datosGuia;
     if (!/^\d{11}$/.test(ruc)) return toast.error("El RUC debe tener 11 dígitos");
     if (!/^[A-Z][A-Z0-9]{3}$/.test(serie)) return toast.error("La serie tiene 4 caracteres y empieza con letra (p.ej. T001 o EG07)");
     if (!/^\d{1,8}$/.test(numero)) return toast.error("El número tiene hasta 8 dígitos");
+    setImportando(true);
+    try {
+      const datos = await consultarGuiaRemitente(ruc, serie, numero);
+      aplicarGuia(datos);
+      toast.success(`Guía ${datos.remitente_guia_serie}-${datos.remitente_guia_numero} traída de SUNAT: revisa los datos`);
+      return;
+    } catch {
+      toast.warning(
+        "SUNAT no deja traer esta guía por internet. Para que se llene todo solo, descarga su XML en SOL (Empresas → Guía de Remisión Electrónica → Consulta de GRE) y súbelo aquí; o completa la ruta a mano.",
+        { duration: 12000 }
+      );
+    } finally {
+      setImportando(false);
+    }
     try {
       const clienteRuc = await autocompletarCliente("RUC", ruc);
       reset({ destinatario_tipo_documento: "6" });
@@ -134,31 +176,7 @@ export default function ActivarViajePage() {
     setImportando(true);
     try {
       const datos = await importarGuiaRemitente(archivo);
-      const partida = nombresUbigeo(datos.origen.ubigeo);
-      const llegada = nombresUbigeo(datos.destino.ubigeo);
-      reset({
-        origen_direccion: datos.origen.direccion ?? "",
-        origen_departamento: partida.departamento,
-        origen_provincia: partida.provincia,
-        origen_distrito: partida.distrito,
-        origen_ubigeo: partida.ubigeo,
-        destino_direccion: datos.destino.direccion ?? "",
-        destino_departamento: llegada.departamento,
-        destino_provincia: llegada.provincia,
-        destino_distrito: llegada.distrito,
-        destino_ubigeo: llegada.ubigeo,
-        peso_tm: datos.peso_tm ?? undefined,
-        numero_bultos: datos.numero_bultos ? String(datos.numero_bultos) : "",
-        fecha_salida_programada: datos.fecha_inicio_traslado ? `${datos.fecha_inicio_traslado}T08:00` : "",
-        destinatario_tipo_documento: datos.destinatario?.tipo_documento ?? "6",
-        destinatario_numero_documento: datos.destinatario?.numero_documento ?? "",
-        destinatario_razon_social: datos.destinatario?.razon_social ?? "",
-      });
-      setGuia(datos);
-      setCliente(datos.cliente);
-      setBienes(datos.bienes);
-      setDestinatarioEsCliente(false);
-      setVersionUbicacion((v) => v + 1);
+      aplicarGuia(datos);
       toast.success(`Guía ${datos.remitente_guia_serie}-${datos.remitente_guia_numero} leída: revisa los datos`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo leer la guía del cliente");
@@ -329,8 +347,8 @@ export default function ActivarViajePage() {
                       onChange={(e) => setDatosGuia({ ...datosGuia, numero: e.target.value.replace(/\D/g, "") })}
                     />
                     <Button type="button" variant="outline" onClick={onUsarDatosGuia} disabled={usandoDatos || importando}>
-                      {usandoDatos && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Usar estos datos
+                      {(usandoDatos || importando) && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Buscar en SUNAT
                     </Button>
                   </div>
                 </div>
